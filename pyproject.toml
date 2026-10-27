@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [{ name = "Krish Jeswal", email = "krishjeswal@gmail.com" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastexcel>=0.21.0",
     "numpy>=2.5.3",
     "omegaconf>=2.3.1",
     "optuna>=5.0.0",
@@ -25,6 +26,7 @@ dev = [
     "hypothesis>=6.168.2",
     "pytest>=9.1.1",
     "ruff>=0.16.9",
+    "xlsxwriter>=3.3.0",
 ]
 
 [build-system]
@@ -47,8 +49,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "NPY", "PT", "RUF"]
+allowed-confusables = ["，"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 xfail_strict = true
