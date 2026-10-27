@@ -17,3 +17,35 @@ def make_raw_sheet(rows: list[dict]) -> pl.DataFrame:
             **{label: [r["labels"][label] for r in rows] for label in LABELS},
         }
     )
+
+
+def _labels(**on: int) -> dict[str, int]:
+    return {label: on.get(label, 0) for label in LABELS}
+
+
+THREE_PATIENTS = [
+    {
+        "id": 0,
+        "age": 69,
+        "sex": "Female",
+        "left_kw": "cataract",
+        "right_kw": "normal fundus",
+        "labels": _labels(C=1),
+    },
+    {
+        "id": 1,
+        "age": 57,
+        "sex": "Male",
+        "left_kw": "normal fundus",
+        "right_kw": "normal fundus",
+        "labels": _labels(N=1),
+    },
+    {
+        "id": 2,
+        "age": 42,
+        "sex": "Male",
+        "left_kw": "laser spot，moderate non proliferative retinopathy",
+        "right_kw": "moderate non proliferative retinopathy",
+        "labels": _labels(D=1),
+    },
+]

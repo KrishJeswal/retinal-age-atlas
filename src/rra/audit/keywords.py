@@ -9,6 +9,7 @@ CATEGORIES = (
     "normal",
     "artefact",
     "quality",
+    "ungradable",
     "dr",
     "hr",
     "glaucoma",
@@ -164,16 +165,20 @@ def eye_categories(eyes: pl.DataFrame, mapping: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def benign_eye() -> pl.Expr:
-    """Eye has at least one term and every term is normal or artefact."""
+def only_categories(allowed: tuple[str, ...]) -> pl.Expr:
+    """Eye has at least one term and every term's category is in `allowed`."""
     return (pl.col("n_terms") > 0) & ~pl.any_horizontal(
-        pl.col(f"cat_{c}") for c in CATEGORIES if c not in BENIGN
+        pl.col(f"cat_{c}") for c in CATEGORIES if c not in allowed
     )
+
+
+def benign_eye() -> pl.Expr:
+    return only_categories(BENIGN)
 
 
 def keyword_labels(categories: pl.DataFrame) -> pl.DataFrame:
     """Patient labels implied by the keywords: N if both eyes are benign, otherwise the label
-    whose category appears in either eye. Lens, quality and artefact imply no label."""
+    whose category appears in either eye. Lens, quality, ungradable and artefact imply no label."""
     return (
         categories.group_by("patient_id")
         .agg(
