@@ -3,7 +3,13 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from rra.audit.integrity import REASONS, exclusion_flow, included, metadata_exclusions
+from rra.audit.integrity import (
+    REASONS,
+    exclusion_flow,
+    image_exclusions,
+    included,
+    metadata_exclusions,
+)
 from rra.audit.keywords import eye_categories
 from rra.data.manifest import KEY
 from rra.data.odir import parse_patients, to_eyes
@@ -156,3 +162,71 @@ def test_flow_is_monotone_and_ends_at_the_included_set(picks):
     assert remaining == sorted(remaining, reverse=True)
     assert flow["excluded_eyes"].sum() == exclusions.select(KEY).unique().height
     assert remaining[-1] == included(eyes, exclusions).height
+
+
+def sweep_rows(rows: list[tuple]) -> pl.DataFrame:
+    return pl.DataFrame(
+        rows,
+        schema={
+            "patient_id": pl.Int64,
+            "eye": pl.Enum(["left", "right"]),
+            "decode_ok": pl.Boolean,
+            "fov_shape": pl.String,
+            "sha256": pl.String,
+        },
+        orient="row",
+    )
+
+
+def no_pairs() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "patient_a": pl.Int64,
+            "eye_a": pl.String,
+            "patient_b": pl.Int64,
+            "eye_b": pl.String,
+        }
+    )
+
+
+def test_image_exclusions_decode_and_fov_failures():
+    features = sweep_rows(
+        [
+            (0, "left", True, "full", "a"),
+            (0, "right", False, None, None),
+            (1, "left", True, "failed", "c"),
+            (1, "right", None, None, None),
+        ]
+    )
+    found = set(image_exclusions(features, no_pairs()).rows())
+    assert found == {
+        (0, "right", "decode_failed"),
+        (1, "left", "fov_failed"),
+        (1, "right", "decode_failed"),
+    }
+
+
+def test_image_exclusions_drop_every_copy():
+    features = sweep_rows(
+        [
+            (0, "left", True, "full", "same"),
+            (0, "right", True, "full", "b"),
+            (1, "left", True, "full", "same"),
+            (1, "right", True, "full", "d"),
+            (2, "left", True, "full", "e"),
+            (2, "right", True, "full", "f"),
+        ]
+    )
+    pairs = pl.DataFrame(
+        [(2, "left", 2, "right"), (0, "right", 1, "right")],
+        schema={
+            "patient_a": pl.Int64,
+            "eye_a": pl.String,
+            "patient_b": pl.Int64,
+            "eye_b": pl.String,
+        },
+        orient="row",
+    )
+    excluded = image_exclusions(features, pairs)
+    assert set(excluded["reason"].to_list()) == {"duplicate_image"}
+    assert excluded.height == 6

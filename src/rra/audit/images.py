@@ -104,24 +104,49 @@ def mirrored(thumbnails: np.ndarray) -> np.ndarray:
     return thumbnails.reshape(-1, n, n)[:, :, ::-1].reshape(-1, n * n)
 
 
-def near_duplicates(features: pl.DataFrame, threshold: float, chunk: int = 1024) -> pl.DataFrame:
-    """Every pair of eyes whose thumbnails correlate above `threshold`, as-is or with one
-    mirrored (a flipped copy filed as the fellow eye). One row per pair, best correlation."""
-    usable = features.filter(pl.col("thumbnail").is_not_null())
-    vectors = usable["thumbnail"].to_numpy().astype(np.float64)
+def correlation_blocks(vectors: np.ndarray, chunk: int = 1024):
+    """(start, kind, correlations of rows start:start+chunk with every eye), as-is and with the
+    other eye mirrored. Blocked so 7k x 7k never sits in memory twice."""
     flipped = mirrored(vectors)
-    pairs = []
     for start in range(0, len(vectors), chunk):
         block = vectors[start : start + chunk]
         for kind, other in (("direct", vectors), ("mirrored", flipped)):
-            correlation = block @ other.T
-            rows, cols = np.nonzero(correlation > threshold)
-            keep = rows + start < cols
-            pairs += [
-                (int(i + start), int(j), float(correlation[i, j]), kind)
-                for i, j in zip(rows[keep], cols[keep], strict=True)
-            ]
-    keys = usable.select("patient_id", "eye").with_row_index("index")
+            yield start, kind, block @ other.T
+
+
+def usable_thumbnails(features: pl.DataFrame) -> tuple[pl.DataFrame, np.ndarray]:
+    usable = features.filter(pl.col("thumbnail").is_not_null())
+    return usable.select(KEY), usable["thumbnail"].to_numpy().astype(np.float64)
+
+
+def nearest_correlation(features: pl.DataFrame, chunk: int = 1024) -> pl.DataFrame:
+    """Per eye, its highest correlation with any other eye (direct or mirrored). The histogram of
+    this is where the duplicate threshold is read off: unrelated eyes form a bulk near 0,
+    copies a separate mode near 1."""
+    keys, vectors = usable_thumbnails(features)
+    best = np.full(len(vectors), -np.inf)
+    for start, _, correlation in correlation_blocks(vectors, chunk):
+        rows = np.arange(len(correlation))
+        correlation[rows, rows + start] = -np.inf
+        best[start : start + len(correlation)] = np.maximum(
+            best[start : start + len(correlation)], correlation.max(axis=1)
+        )
+    return keys.with_columns(nearest_correlation=pl.Series(best))
+
+
+def near_duplicates(features: pl.DataFrame, threshold: float, chunk: int = 1024) -> pl.DataFrame:
+    """Every pair of eyes whose thumbnails correlate above `threshold`, as-is or with one
+    mirrored (a flipped copy filed as the fellow eye). One row per pair, best correlation."""
+    keys, vectors = usable_thumbnails(features)
+    pairs = []
+    for start, kind, correlation in correlation_blocks(vectors, chunk):
+        rows, cols = np.nonzero(correlation > threshold)
+        keep = rows + start < cols
+        pairs += [
+            (int(i + start), int(j), float(correlation[i, j]), kind)
+            for i, j in zip(rows[keep], cols[keep], strict=True)
+        ]
+    keys = keys.with_row_index("index")
     found = pl.DataFrame(
         pairs,
         schema={"a": pl.UInt32, "b": pl.UInt32, "correlation": pl.Float64, "kind": pl.String},

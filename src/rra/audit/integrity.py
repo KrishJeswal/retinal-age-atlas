@@ -16,6 +16,9 @@ REASONS = (
     "duplicate_file",
     "filename_mismatch",
     "file_not_found",
+    "decode_failed",
+    "fov_failed",
+    "duplicate_image",
     "ungradable",
 )
 REASON_DTYPE = pl.Enum(REASONS)
@@ -59,6 +62,44 @@ def metadata_exclusions(
         categories.select(*KEY, pl.col("cat_ungradable").alias("ungradable")), on=KEY, how="left"
     ).with_columns(pl.col("ungradable").fill_null(False))
 
+    return (
+        flagged.unpivot(index=list(KEY), variable_name="reason", value_name="failed")
+        .filter(pl.col("failed"))
+        .select(*KEY, pl.col("reason").cast(REASON_DTYPE))
+        .sort(*KEY, "reason")
+    )
+
+
+def image_exclusions(features: pl.DataFrame, duplicate_pairs: pl.DataFrame) -> pl.DataFrame:
+    """Image-sweep reasons, same layout as `metadata_exclusions`. Every eye in a near-duplicate
+    pair (cross-patient, or a patient's two eyes being one image) and every eye sharing its
+    SHA-256 with another eye is excluded: no copy's identity, age or laterality can be trusted."""
+    paired = (
+        pl.concat(
+            [
+                duplicate_pairs.select(
+                    pl.col(f"patient_{s}").alias("patient_id"), pl.col(f"eye_{s}").alias("eye")
+                )
+                for s in ("a", "b")
+            ]
+        )
+        .unique()
+        .cast({"eye": features.schema["eye"]})
+    )
+    flagged = features.select(
+        *KEY,
+        (~pl.col("decode_ok").fill_null(False)).alias("decode_failed"),
+        (pl.col("decode_ok").fill_null(False) & (pl.col("fov_shape") == "failed")).alias(
+            "fov_failed"
+        ),
+        (pl.col("sha256").is_not_null() & pl.col("sha256").is_duplicated()).alias("exact_copy"),
+    ).join(paired.with_columns(near_copy=pl.lit(True)), on=KEY, how="left")
+    flagged = flagged.select(
+        *KEY,
+        "decode_failed",
+        "fov_failed",
+        (pl.col("exact_copy") | pl.col("near_copy").fill_null(False)).alias("duplicate_image"),
+    )
     return (
         flagged.unpivot(index=list(KEY), variable_name="reason", value_name="failed")
         .filter(pl.col("failed"))

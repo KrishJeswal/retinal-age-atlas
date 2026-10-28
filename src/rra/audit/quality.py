@@ -1,9 +1,24 @@
 import numpy as np
-from scipy import ndimage
+import polars as pl
+import statsmodels.api as sm
+from scipy import ndimage, stats
+
+from rra.analysis.discrimination import auc, auc_with_ci
+from rra.data.manifest import KEY
 
 SATURATED = 250 / 255
 DARK = 5 / 255
 ILLUMINATION_SIGMA = 0.1
+EYEQ_FALLBACK_AUC = 0.75
+SCORE_FOLDS = 5
+
+QUALITY_DIRECTION = {
+    "sharpness": -1,
+    "contrast": -1,
+    "illum_cv": 1,
+    "clip_high": 1,
+    "clip_low": 1,
+}
 
 _SRGB_TO_XYZ = np.array(
     [
@@ -48,3 +63,87 @@ def quality_metrics(rgb: np.ndarray, mask: np.ndarray) -> dict[str, float]:
         "lab_a": float(lab[:, 1].mean()),
         "lab_b": float(lab[:, 2].mean()),
     }
+
+
+def normal_scores(values: np.ndarray) -> np.ndarray:
+    """Rank-based z: Phi^-1((rank - 0.5) / n), ties averaged, NaN kept. Monotone like a plain
+    z-score but not dominated by the long tails of sharpness and the clip fractions."""
+    out = np.full(len(values), np.nan)
+    present = ~np.isnan(values)
+    out[present] = stats.norm.ppf((stats.rankdata(values[present]) - 0.5) / present.sum())
+    return out
+
+
+def signed_scores(features: pl.DataFrame) -> pl.DataFrame:
+    """KEY + one normal score per metric, signed so higher always means worse quality. Ranks are
+    over every eye with metrics (no labels involved)."""
+    return features.select(KEY).with_columns(
+        pl.Series(
+            metric,
+            sign * normal_scores(features[metric].cast(pl.Float64).to_numpy()),
+            nan_to_null=True,
+        )
+        for metric, sign in QUALITY_DIRECTION.items()
+    )
+
+
+def quality_score(features: pl.DataFrame) -> pl.DataFrame:
+    """D3 primary score: unweighted mean of the signed normal scores. Nothing is fitted, so its
+    AUC against the keywords is an honest validation. Null if any metric is missing."""
+    metrics = list(QUALITY_DIRECTION)
+    return signed_scores(features).select(
+        *KEY,
+        pl.when(pl.all_horizontal(pl.col(metrics).is_not_null()))
+        .then(pl.mean_horizontal(metrics))
+        .alias("quality_score"),
+    )
+
+
+def low_quality_keyword(categories: pl.DataFrame) -> pl.DataFrame:
+    """Validation target: any quality or ungradable keyword on the eye."""
+    return categories.select(
+        *KEY, (pl.col("cat_quality") | pl.col("cat_ungradable")).alias("low_quality_kw")
+    )
+
+
+def crossfit_logistic_score(
+    features: pl.DataFrame, target: pl.DataFrame, folds: int = SCORE_FOLDS, seed: int = 0
+) -> pl.DataFrame:
+    """Sensitivity score: logistic regression of the keyword target on the signed scores, each
+    eye predicted by a model that never saw its patient (patient-level folds)."""
+    data = signed_scores(features).join(target, on=KEY).drop_nulls()
+    patients = data["patient_id"].unique().sort().to_numpy()
+    fold_of = dict(
+        zip(patients, np.random.default_rng(seed).permutation(len(patients)) % folds, strict=True)
+    )
+    fold = np.array([fold_of[p] for p in data["patient_id"]])
+    x = sm.add_constant(data.select(list(QUALITY_DIRECTION)).to_numpy())
+    y = data["low_quality_kw"].to_numpy().astype(float)
+    predicted = np.empty(len(y))
+    for k in range(folds):
+        test = fold == k
+        model = sm.Logit(y[~test], x[~test]).fit(disp=0)
+        predicted[test] = model.predict(x[test])
+    return data.select(*KEY, "low_quality_kw").with_columns(logistic_score=pl.Series(predicted))
+
+
+def validate_quality(
+    features: pl.DataFrame, categories: pl.DataFrame, n_boot: int = 2000, seed: int = 0
+) -> dict[str, float | int | bool]:
+    """D3 validation: AUC of the fixed score for the low-quality keywords with a patient
+    bootstrap CI, plus the cross-fitted logistic AUC. `passes` is False -> EyeQ fallback."""
+    target = low_quality_keyword(categories)
+    data = quality_score(features).join(target, on=KEY).drop_nulls()
+    result = auc_with_ci(
+        data["quality_score"].to_numpy(),
+        data["low_quality_kw"].to_numpy(),
+        data["patient_id"].to_numpy(),
+        n_boot,
+        seed,
+    )
+    logistic = crossfit_logistic_score(features, target, seed=seed)
+    result["logistic_auc"] = auc(
+        logistic["logistic_score"].to_numpy(), logistic["low_quality_kw"].to_numpy()
+    )
+    result["passes"] = result["auc"] >= EYEQ_FALLBACK_AUC
+    return result

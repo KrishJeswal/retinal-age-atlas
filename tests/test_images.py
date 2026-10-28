@@ -10,6 +10,7 @@ from rra.audit.images import (
     THUMBNAIL_SIZE,
     image_features,
     near_duplicates,
+    nearest_correlation,
     standardise,
     sweep,
     thumbnail,
@@ -110,7 +111,7 @@ def test_thumbnail_separates_copies_from_other_eyes():
         assert abs(float(base @ standardised_thumbnail(make_fundus(seed=seed)))) < 0.2
 
 
-def test_near_duplicates_finds_direct_and_mirrored_copies():
+def duplicate_features() -> pl.DataFrame:
     original = make_fundus(seed=1)
     rows = [
         (0, "left", original),
@@ -119,7 +120,7 @@ def test_near_duplicates_finds_direct_and_mirrored_copies():
         (2, "right", original[:, ::-1].copy()),
         (3, "left", make_fundus(seed=3)),
     ]
-    features = pl.DataFrame(
+    return pl.DataFrame(
         {
             "patient_id": [r[0] for r in rows],
             "eye": [r[1] for r in rows],
@@ -131,6 +132,10 @@ def test_near_duplicates_finds_direct_and_mirrored_copies():
             "thumbnail": pl.Array(pl.Float32, THUMBNAIL_SIZE**2),
         },
     )
+
+
+def test_near_duplicates_finds_direct_and_mirrored_copies():
+    features = duplicate_features()
     pairs = near_duplicates(features, threshold=0.9, chunk=2)
     found = {(a, ea, b, eb, kind) for a, ea, b, eb, _, kind in pairs.rows()}
     assert found == {
@@ -138,6 +143,12 @@ def test_near_duplicates_finds_direct_and_mirrored_copies():
         (0, "left", 2, "right", "mirrored"),
         (1, "left", 2, "right", "mirrored"),
     }
+
+
+def test_nearest_correlation_separates_copies_from_unrelated_eyes():
+    nearest = nearest_correlation(duplicate_features(), chunk=2)["nearest_correlation"].to_list()
+    assert min(nearest[i] for i in (0, 2, 3)) > 0.9
+    assert max(nearest[i] for i in (1, 4)) < 0.2
 
 
 def test_image_features_on_a_jpeg(tmp_path):
