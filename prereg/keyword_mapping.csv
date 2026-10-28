@@ -1,0 +1,103 @@
+term,category,severity,note
+abnormal pigment,other,,
+age-related macular degeneration,amd,,
+anterior segment image,ungradable,,P7
+arteriosclerosis,other,,as vessel tortuosity
+asteroid hyalosis,other,,vitreous; optical
+atrophic change,other,,
+atrophy,other,,
+branch retinal artery occlusion,other,,
+branch retinal vein occlusion,other,,vascular; hypertension-linked but not hypertensive retinopathy
+cataract,cataract,,
+central retinal artery occlusion,other,,
+central retinal vein occlusion,other,,as branch retinal vein occlusion
+central serous chorioretinopathy,other,,
+chorioretinal atrophy,other,,
+chorioretinal atrophy with pigmentation proliferation,other,,
+choroidal nevus,other,,"benign lesion, but not a normal fundus"
+congenital choroidal coloboma,other,,
+depigmentation of the retinal pigment epithelium,other,,
+diabetic retinopathy,dr,unspecified,
+diffuse chorioretinal atrophy,other,,
+diffuse retinal atrophy,other,,
+drusen,other,,"drusen alone: early-AMD sign but readers labelled them O (A on 1/179 eyes); age-related finding, not benign"
+dry age-related macular degeneration,amd,,
+epiretinal membrane,other,,
+epiretinal membrane over the macula,other,,
+fundus laser photocoagulation spots,other,,as laser spot
+glaucoma,glaucoma,confirmed,
+glial remnants anterior to the optic disc,other,,
+hypertensive retinopathy,hr,,
+idiopathic choroidal neovascularization,other,,idiopathic: not AMD
+image offset,quality,,"decentred capture; kept with the quality covariate rather than treated as a benign artefact, because it changes FOV geometry"
+intraretinal hemorrhage,other,,"haemorrhage, cause unstated; not counted as DR"
+intraretinal microvascular abnormality,dr,unspecified,"IRMA is a DR lesion (a severe-NPDR criterion only with extent, which the keyword does not give)"
+laser spot,other,,"treatment scar, cause unstated (mostly PRP for DR: 81/95 eyes have the D label); not counted as DR, never benign"
+lens dust,artefact,,"dust on the camera lens; acquisition artefact, not ocular (D1 benign)"
+low image quality,quality,,
+macular coloboma,other,,
+macular epiretinal membrane,other,,
+macular hole,other,,
+macular pigmentation disorder,other,,
+maculopathy,other,,unspecified maculopathy; cause unstated
+mild nonproliferative retinopathy,dr,mild_npdr,
+moderate non proliferative retinopathy,dr,moderate_npdr,
+morning glory syndrome,other,,
+myelinated nerve fibers,other,,"benign congenital variant, but it changes the peripapillary appearance the disc head sees; not in the healthy pool"
+myopia retinopathy,myopia,,
+myopic maculopathy,myopia,,
+myopic retinopathy,myopia,,
+no fundus image,ungradable,,P7
+normal fundus,normal,,
+old branch retinal vein occlusion,other,,as branch retinal vein occlusion
+old central retinal vein occlusion,other,,as branch retinal vein occlusion
+old chorioretinopathy,other,,
+old choroiditis,other,,
+optic disc edema,other,,
+optic discitis,other,,
+optic disk epiretinal membrane,other,,
+optic disk photographically invisible,ungradable,,P7 (optic disc not visible)
+optic nerve atrophy,other,,not glaucoma
+oval yellow-white atrophy,other,,
+pathological myopia,myopia,,
+peripapillary atrophy,other,,myopic or glaucomatous; not specific
+pigment epithelium proliferation,other,,
+pigmentation disorder,other,,
+post laser photocoagulation,other,,as laser spot
+post retinal laser surgery,other,,as laser spot
+proliferative diabetic retinopathy,dr,pdr,
+punctate inner choroidopathy,other,,
+refractive media opacity,other,,"opacity of cornea, lens or vitreous, site unstated; optical confound (threat 7) but not specifically cataract (C label on 8/63 eyes)"
+retina fold,other,,
+retinal artery macroaneurysm,other,,
+retinal detachment,other,,
+retinal pigment epithelial hypertrophy,other,,
+retinal pigment epithelium atrophy,other,,
+retinal pigmentation,other,,
+retinal vascular sheathing,other,,
+retinitis pigmentosa,other,,
+retinochoroidal coloboma,other,,
+rhegmatogenous retinal detachment,other,,
+severe nonproliferative retinopathy,dr,severe_npdr,
+severe proliferative diabetic retinopathy,dr,pdr,ICDR has no grade above PDR
+silicone oil eye,other,,post vitrectomy; strong optical effect
+spotted membranous change,other,,
+suspected abnormal color of optic disc,other,,
+suspected cataract,cataract,,"single eye, patient labelled C"
+suspected diabetic retinopathy,other,,suspected only: kept out of the DR group so confirmatory D contains definite DR; not benign either
+suspected glaucoma,glaucoma,suspected,
+suspected macular epimacular membrane,other,,
+suspected microvascular anomalies,other,,"suspected, cause unstated"
+suspected moderate non proliferative retinopathy,other,,as suspected diabetic retinopathy
+suspected retinal vascular sheathing,other,,
+suspected retinitis pigmentosa,other,,
+suspicious diabetic retinopathy,other,,as suspected diabetic retinopathy
+tessellated fundus,other,,common in myopia but also in normal ageing (M on 21/29 eyes); not specific to myopia
+vascular loops,other,,
+vessel tortuosity,other,,not mapped to hr: not a hypertensive retinopathy keyword
+vitreous degeneration,other,,vitreous; optical
+vitreous opacity,other,,vitreous; optical
+wedge white line change,other,,
+wedge-shaped change,other,,
+wet age-related macular degeneration,amd,,
+white vessel,other,,"sclerosed vessels, cause unstated"
