@@ -6,7 +6,9 @@ results_dir: results/audit
 workers: null
 seed: 0
 duplicate_threshold: null
-duplicate_review_floor: 0.5
+candidate_floor: 0.9
+reference_eyes: 400
+shared_components: 8
 min_cluster_eyes: 50
 n_boot: 2000
 age_bin_width: 5

@@ -63,9 +63,12 @@ def make_fundus(
     blur: float = 0.0,
     colour: tuple[float, float, float] = (0.8, 0.35, 0.15),
     seed: int = 0,
+    dust: tuple[tuple[float, float], ...] = (),
 ) -> np.ndarray:
     """Orange disk on black with fine and coarse (vessel-scale) texture and a bright disc blob
-    at `disc` (offset from the FOV centre in radii; None for no disc). Returns uint8 HxWx3."""
+    at `disc` (offset from the FOV centre in radii; None for no disc). `dust` adds small dark
+    spots at fixed offsets after any blur, like dust on the camera optics, which repeats across
+    every image a camera takes. Returns uint8 HxWx3."""
     rng = np.random.default_rng(seed)
     cx = width / 2 if cx is None else cx
     cy = height / 2 if cy is None else cy
@@ -85,4 +88,7 @@ def make_fundus(
         rgb[..., channel] = np.where(inside, value, 0.0)
     if blur:
         rgb = ndimage.gaussian_filter(rgb, (blur, blur, 0))
+    for dx, dy in dust:
+        spot = np.exp(-((xx - cx - dx * r) ** 2 + (yy - cy - dy * r) ** 2) / (2 * (0.012 * r) ** 2))
+        rgb *= 1 - 0.35 * spot[..., None]
     return (np.clip(rgb, 0, 1) * 255).round().astype(np.uint8)

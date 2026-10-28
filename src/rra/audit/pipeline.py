@@ -24,6 +24,7 @@ from rra.data.manifest import KEY
 from rra.data.odir import read_annotations, to_eyes
 
 FEATURES_FILE = "image_features.parquet"
+VERIFIED_FILE = "duplicate_verification.parquet"
 MANIFEST_FILE = "manifest.parquet"
 HISTOGRAM_BINS = np.linspace(-1, 1, 201)
 VERSIONED = ("numpy", "omegaconf", "pillow", "polars", "scipy", "statsmodels")
@@ -33,24 +34,38 @@ def load_eyes(cfg: AuditConfig) -> pl.DataFrame:
     return to_eyes(read_annotations(Path(cfg.annotations)))
 
 
-def nearest_histogram(nearest: pl.DataFrame) -> pl.DataFrame:
-    """Counts of each eye's nearest-neighbour correlation in 0.01 bins: label-free, aggregate,
-    and the input for choosing `duplicate_threshold`."""
-    counts, edges = np.histogram(nearest["nearest_correlation"].to_numpy(), HISTOGRAM_BINS)
+def correlation_histogram(values: np.ndarray, unit: str) -> pl.DataFrame:
+    """Counts in 0.01 bins over [-1, 1]; label-free and aggregate."""
+    counts, edges = np.histogram(np.clip(values, -1.0, 1.0), HISTOGRAM_BINS)
     return pl.DataFrame(
-        {"bin_low": edges[:-1].round(2), "bin_high": edges[1:].round(2), "n_eyes": counts}
+        {"bin_low": edges[:-1].round(2), "bin_high": edges[1:].round(2), f"n_{unit}": counts}
     )
 
 
 def sweep_stage(eyes: pl.DataFrame, cfg: AuditConfig) -> dict[str, pl.DataFrame]:
-    """Image sweep + duplicate-threshold inputs. Uses no labels or keywords."""
+    """Image sweep + two-stage duplicate check; `duplicate_threshold` is read off the stage-2
+    histogram plus a visual review. Uses no labels or keywords."""
     features = images.sweep(eyes, Path(cfg.image_dir), cfg.workers)
     nearest = images.nearest_correlation(features)
+    candidates = images.near_duplicates(features, cfg.candidate_floor)
+    verified = images.verify_pairs(
+        candidates,
+        eyes,
+        Path(cfg.image_dir),
+        cfg.workers,
+        cfg.reference_eyes,
+        cfg.shared_components,
+        cfg.seed,
+    )
+    fine = verified["fine_correlation"].drop_nulls().to_numpy()
     return {
         "features": features,
         "nearest": nearest,
-        "candidates": images.near_duplicates(features, cfg.duplicate_review_floor),
-        "histogram": nearest_histogram(nearest),
+        "verified": verified,
+        "nearest_histogram": correlation_histogram(
+            nearest["nearest_correlation"].to_numpy(), "eyes"
+        ),
+        "verified_histogram": correlation_histogram(fine, "pairs"),
     }
 
 
@@ -64,6 +79,7 @@ def run_stage(
     cfg: AuditConfig,
     features: pl.DataFrame | None = None,
     image_files: set[str] | None = None,
+    verified: pl.DataFrame | None = None,
 ) -> tuple[pl.DataFrame, dict[str, pl.DataFrame]]:
     """Every audit table plus the per-eye manifest. Without `features` (images not yet
     available) the image-dependent tables (E, F, duplicates, camera strata) are skipped."""
@@ -78,9 +94,9 @@ def run_stage(
     exclusions = integrity.metadata_exclusions(eyes, categories, image_files)
     clusters = None
     if features is not None:
-        if cfg.duplicate_threshold is None:
-            raise ValueError("set duplicate_threshold from the sweep histogram before `run`")
-        pairs = images.near_duplicates(features, cfg.duplicate_threshold)
+        if cfg.duplicate_threshold is None or verified is None:
+            raise ValueError("run `sweep` and set duplicate_threshold from its stage-2 histogram")
+        pairs = verified.filter(pl.col("fine_correlation") > cfg.duplicate_threshold)
         exclusions = (
             pl.concat([exclusions, integrity.image_exclusions(features, pairs)])
             .unique()

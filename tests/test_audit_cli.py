@@ -95,10 +95,15 @@ def test_sweep_then_run(odir):
     histogram = pl.read_csv(odir / "results" / "nearest_correlation_histogram.csv")
     assert histogram["n_eyes"].sum() == 72
     assert histogram.filter(pl.col("bin_low") >= 0.9)["n_eyes"].sum() == 2
+    verification = pl.read_csv(odir / "results" / "duplicate_verification_histogram.csv")
+    assert verification["n_pairs"].sum() == 1
+    assert verification.filter(pl.col("bin_low") >= 0.8)["n_pairs"].sum() == 1
+    verified = pl.read_parquet(odir / "derived" / "duplicate_verification.parquet")
+    assert verified.select("patient_a", "patient_b").rows() == [(3, 20)]
 
     with pytest.raises(ValueError, match="duplicate_threshold"):
         run(odir, "run")
-    run(odir, "run", "duplicate_threshold=0.9")
+    run(odir, "run", "duplicate_threshold=0.75")
 
     results = odir / "results"
     exclusions = pl.read_csv(results / "exclusions.csv")
@@ -132,4 +137,4 @@ def test_sweep_then_run(odir):
     assert digest == mf.content_hash(manifest)
     record = json.loads((results / "run_run.json").read_text())
     assert record["manifest_hash"] == digest
-    assert record["config"]["duplicate_threshold"] == 0.9
+    assert record["config"]["duplicate_threshold"] == 0.75

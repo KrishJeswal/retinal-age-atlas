@@ -18,6 +18,11 @@ STANDARD_DIAMETER = 512
 INNER_MARGIN = 0.05
 THUMBNAIL_SIZE = 64
 HIGHPASS_SIGMA = 0.02
+FINE_SIZE = 256
+FINE_SIGMA = 0.006
+FINE_RADIUS = 0.85
+REFERENCE_EYES = 400
+SHARED_COMPONENTS = 8
 
 FEATURE_SCHEMA: dict[str, pl.DataType] = {
     "decode_ok": pl.Boolean(),
@@ -72,10 +77,26 @@ def load_work_image(path: Path, long_side: int = WORK_LONG_SIDE) -> tuple[Image.
 def standardise(
     image: Image.Image, cx: float, cy: float, r: float
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Square crop around the fitted circle (PIL pads out-of-frame areas with black), resized to
-    a fixed FOV diameter, plus the mask: inside the shrunken circle and inside the real FOV."""
-    box = (round(cx - r), round(cy - r), round(cx + r), round(cy + r))
-    crop = image.crop(box).resize((STANDARD_DIAMETER, STANDARD_DIAMETER), Image.Resampling.LANCZOS)
+    """Square window around the fitted circle at a fixed FOV diameter (out-of-frame areas are
+    black), plus the mask: inside the shrunken circle and inside the real FOV. The image is
+    first resized as a whole (Lanczos, antialiased), then the window is cut at sub-pixel
+    position by a bicubic EXTENT transform at ~1:1 scale; rounding the crop box instead
+    shifts flipped or recropped copies by up to half a pixel, which the fine duplicate
+    signature is sensitive to."""
+    scale = STANDARD_DIAMETER / (2 * r)
+    size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+    resized = image.resize(size, Image.Resampling.LANCZOS)
+    sx, sy = size[0] / image.width, size[1] / image.height
+    # fov_geometry works in pixel-index coordinates; EXTENT in continuous ones (pixel i spans
+    # [i, i + 1)), so the centre moves by +0.5, or a flipped copy lands a pixel off.
+    x0, y0 = cx + 0.5, cy + 0.5
+    extent = (sx * (x0 - r), sy * (y0 - r), sx * (x0 + r), sy * (y0 + r))
+    crop = resized.transform(
+        (STANDARD_DIAMETER, STANDARD_DIAMETER),
+        Image.Transform.EXTENT,
+        extent,
+        resample=Image.Resampling.BICUBIC,
+    )
     rgb = np.asarray(crop, dtype=np.float64) / 255
     centre = (STANDARD_DIAMETER - 1) / 2
     inner = circle_mask(
@@ -112,7 +133,7 @@ def correlation_blocks(vectors: np.ndarray, chunk: int = 1024):
     for start in range(0, len(vectors), chunk):
         block = vectors[start : start + chunk]
         for kind, other in (("direct", vectors), ("mirrored", flipped)):
-            yield start, kind, block @ other.T
+            yield start, kind, np.clip(block @ other.T, -1.0, 1.0)
 
 
 def usable_thumbnails(features: pl.DataFrame) -> tuple[pl.DataFrame, np.ndarray]:
@@ -160,6 +181,122 @@ def near_duplicates(features: pl.DataFrame, threshold: float, chunk: int = 1024)
         .join(keys.rename({"index": "b", "patient_id": "patient_b", "eye": "eye_b"}), on="b")
         .select("patient_a", "eye_a", "patient_b", "eye_b", "correlation", "kind")
         .sort("correlation", descending=True)
+    )
+
+
+def fine_signature(rgb: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
+    """Stage-2 duplicate signature: green minus a blur at ~3 px of a 512 px FOV (individual
+    vessel branching survives), inner 85% of the FOV only (no rim vignetting), 2x2-averaged to
+    256x256. Returned unnormalised, with `detail` = SD of the high-pass inside the region; a
+    featureless (hazy, blurred) image has little detail and cannot be matched on anatomy."""
+    green = rgb[..., 1].copy()
+    green[~mask] = green[mask].mean()
+    highpass = green - ndimage.gaussian_filter(green, FINE_SIGMA * green.shape[0])
+    centre = (green.shape[0] - 1) / 2
+    region = mask & circle_mask(*green.shape, centre, centre, FINE_RADIUS * centre)
+    highpass[~region] = 0
+    block = green.shape[0] // FINE_SIZE
+    small = highpass.reshape(FINE_SIZE, block, FINE_SIZE, block).mean(axis=(1, 3))
+    return small.ravel().astype(np.float32), float(highpass[region].std())
+
+
+def fine_features(path: Path) -> dict:
+    try:
+        image, _ = load_work_image(path)
+        fov = fov_geometry(np.asarray(image))
+        if fov.shape_class == "failed":
+            return {"fine": None, "detail": None}
+        signature, detail = fine_signature(*standardise(image, fov.cx, fov.cy, fov.r))
+    except Exception:
+        return {"fine": None, "detail": None}
+    return {"fine": signature, "detail": detail}
+
+
+def shared_basis(reference: np.ndarray, components: int = SHARED_COMPONENTS) -> np.ndarray:
+    """Orthonormal rows spanning what fine signatures share across the population (rim, disc
+    and fovea positions, camera dust): the top right singular vectors of the uncentred reference
+    matrix, so the mean pattern is included. Rows are scaled to unit norm first: a sharp image
+    carries ~15x the high-pass energy of a hazy one, and without scaling the top components
+    are just the sharpest individual images, not what images share."""
+    rows = reference.astype(np.float64)
+    norms = np.linalg.norm(rows, axis=1, keepdims=True)
+    rows = rows[norms[:, 0] > 0] / norms[norms[:, 0] > 0]
+    _, _, vt = np.linalg.svd(rows, full_matrices=False)
+    return vt[:components]
+
+
+def residual_unit(signature: np.ndarray, basis: np.ndarray) -> np.ndarray:
+    """Unit-norm, centred part of `signature` outside the shared subspace; NaN when (almost)
+    nothing is left, so floating-point remainders are never normalised into a pattern."""
+    signature = signature.astype(np.float64)
+    residual = signature - (signature @ basis.T) @ basis
+    residual = residual - residual.mean()
+    norm = np.linalg.norm(residual)
+    if norm <= 1e-6 * max(np.linalg.norm(signature), 1e-12):
+        return np.full_like(residual, np.nan)
+    return residual / norm
+
+
+def fine_mirrored(signature: np.ndarray) -> np.ndarray:
+    return signature.reshape(FINE_SIZE, FINE_SIZE)[:, ::-1].ravel()
+
+
+def verify_pairs(
+    candidates: pl.DataFrame,
+    eyes: pl.DataFrame,
+    image_dir: Path,
+    workers: int | None = None,
+    reference_eyes: int = REFERENCE_EYES,
+    components: int = SHARED_COMPONENTS,
+    seed: int = 0,
+) -> pl.DataFrame:
+    """Stage 2: re-decode only the candidate images plus a seeded random reference sample of
+    eyes outside every candidate pair (a duplicate pair inside the reference would become a
+    "shared" component and be projected out of itself), remove the population-shared subspace
+    from each fine signature and correlate the residuals
+    (the second image mirrored for `mirrored` pairs). Adds `fine_correlation`, `detail_a`,
+    `detail_b`. Label-free."""
+    files = dict(zip(eyes.select(KEY).rows(), eyes["file"], strict=True))
+    wanted = set(candidates.select("patient_a", "eye_a").rows())
+    wanted |= set(candidates.select("patient_b", "eye_b").rows())
+    pool = sorted(k for k, f in files.items() if f and k not in wanted)
+    picked = np.random.default_rng(seed).choice(
+        len(pool), size=min(reference_eyes, len(pool)), replace=False
+    )
+    reference = [pool[i] for i in sorted(picked)]
+    keys = sorted(wanted | set(reference))
+    paths = [image_dir / (files.get(k) or "") for k in keys]
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context) as executor:
+        computed = dict(zip(keys, executor.map(fine_features, paths, chunksize=8), strict=True))
+
+    usable = [computed[k]["fine"] for k in reference if computed[k]["fine"] is not None]
+    basis = shared_basis(np.stack(usable), components)
+    rows = []
+    for pair in candidates.iter_rows(named=True):
+        a = computed[(pair["patient_a"], pair["eye_a"])]
+        b = computed[(pair["patient_b"], pair["eye_b"])]
+        correlation = None
+        if a["fine"] is not None and b["fine"] is not None:
+            other = fine_mirrored(b["fine"]) if pair["kind"] == "mirrored" else b["fine"]
+            value = float(residual_unit(a["fine"], basis) @ residual_unit(other, basis))
+            correlation = None if np.isnan(value) else float(np.clip(value, -1.0, 1.0))
+        rows.append(
+            {
+                **pair,
+                "fine_correlation": correlation,
+                "detail_a": a["detail"],
+                "detail_b": b["detail"],
+            }
+        )
+    schema = {
+        **candidates.schema,
+        "fine_correlation": pl.Float64,
+        "detail_a": pl.Float64,
+        "detail_b": pl.Float64,
+    }
+    return pl.DataFrame(rows, schema=schema).sort(
+        "fine_correlation", descending=True, nulls_last=True
     )
 
 

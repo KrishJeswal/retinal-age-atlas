@@ -14,7 +14,9 @@ class AuditConfig:
     workers: int | None = None
     seed: int = 0
     duplicate_threshold: float | None = None
-    duplicate_review_floor: float = 0.5
+    candidate_floor: float = 0.9
+    reference_eyes: int = 400
+    shared_components: int = 8
     min_cluster_eyes: int = 50
     n_boot: int = 2000
     age_bin_width: int = 5

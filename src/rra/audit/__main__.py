@@ -25,15 +25,24 @@ def main(argv: list[str] | None = None) -> None:
         out = pipeline.sweep_stage(eyes, cfg)
         derived.mkdir(parents=True, exist_ok=True)
         out["features"].write_parquet(derived / pipeline.FEATURES_FILE)
-        out["candidates"].write_csv(derived / "duplicate_candidates.csv")
-        pipeline.write_tables({"nearest_correlation_histogram": out["histogram"]}, results)
+        out["verified"].write_parquet(derived / pipeline.VERIFIED_FILE)
+        out["verified"].write_csv(derived / "duplicate_candidates.csv")
+        pipeline.write_tables(
+            {
+                "nearest_correlation_histogram": out["nearest_histogram"],
+                "duplicate_verification_histogram": out["verified_histogram"],
+            },
+            results,
+        )
     else:
         features_path = derived / pipeline.FEATURES_FILE
         features = pl.read_parquet(features_path) if features_path.exists() else None
+        verified_path = derived / pipeline.VERIFIED_FILE
+        verified = pl.read_parquet(verified_path) if verified_path.exists() else None
         image_dir = Path(cfg.image_dir)
         image_files = {p.name for p in image_dir.iterdir()} if image_dir.is_dir() else None
         manifest, tables = pipeline.run_stage(
-            eyes, keywords.read_mapping(Path(cfg.mapping)), cfg, features, image_files
+            eyes, keywords.read_mapping(Path(cfg.mapping)), cfg, features, image_files, verified
         )
         digest = mf.write(manifest, derived / pipeline.MANIFEST_FILE)
         pipeline.write_tables(tables, results)
