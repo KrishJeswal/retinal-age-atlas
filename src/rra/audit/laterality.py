@@ -1,4 +1,6 @@
+import numpy as np
 import polars as pl
+from scipy import ndimage
 
 from rra.audit.keywords import CATEGORIES, benign_eye
 
@@ -94,3 +96,19 @@ def unilateral_patients(
     """Patient IDs with `category` in exactly one eye; Tier C cases are ("dr", True)."""
     pairs = eye_pairs(categories)
     return pairs.filter(unilateral(category, benign_fellow)).select("patient_id")
+
+
+def disc_offset(rgb: np.ndarray, mask: np.ndarray, sigma: float = 0.03) -> dict[str, float]:
+    """D7 crude disc locator: brightest point of the blurred image inside the FOV, as an offset
+    from the FOV centre in radii (x right, y down) on a standardised square image. Bright
+    lesions or glare can win; this only flags patients for manual review."""
+    diameter = mask.shape[0]
+    blurred = ndimage.gaussian_filter(rgb.mean(axis=2), sigma * diameter)
+    blurred[~mask] = -np.inf
+    y, x = np.unravel_index(np.argmax(blurred), blurred.shape)
+    centre = (diameter - 1) / 2
+    return {
+        "disc_dx": float((x - centre) / centre),
+        "disc_dy": float((y - centre) / centre),
+        "disc_peak": float(blurred[y, x] / np.median(blurred[mask])),
+    }
