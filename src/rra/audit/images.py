@@ -1,4 +1,5 @@
 import hashlib
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -201,8 +202,10 @@ def image_features(path: Path) -> dict:
 
 def sweep(eyes: pl.DataFrame, image_dir: Path, workers: int | None = None) -> pl.DataFrame:
     """One row per eye in `eyes` (KEY + FEATURE_SCHEMA). Missing files appear as decode
-    failures; the integrity audit reports them separately."""
+    failures; the integrity audit reports them separately. Workers are spawned, not forked:
+    forking after Polars/NumPy have started threads can deadlock the children on Linux."""
     paths = [image_dir / (file or "") for file in eyes["file"]]
-    with ProcessPoolExecutor(max_workers=workers) as pool:
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
         rows = list(pool.map(image_features, paths, chunksize=16))
     return eyes.select(KEY).hstack(pl.DataFrame(rows, schema=FEATURE_SCHEMA))

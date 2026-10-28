@@ -13,7 +13,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("stage", choices=["vocabulary", "sweep", "run"])
     parser.add_argument("--config", type=Path, default=Path("configs/audit.yaml"))
     parser.add_argument("overrides", nargs="*", help="dotlist overrides, e.g. workers=4")
-    args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     cfg = load_config(args.config if args.config.exists() else None, args.overrides)
     results, derived = Path(cfg.results_dir), Path(cfg.derived_dir)
