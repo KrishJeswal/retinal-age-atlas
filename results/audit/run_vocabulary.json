@@ -1,0 +1,29 @@
+{
+  "stage": "vocabulary",
+  "config": {
+    "annotations": "data/raw/odir/annotations.xlsx",
+    "image_dir": "data/raw/odir/images",
+    "mapping": "prereg/keyword_mapping.csv",
+    "derived_dir": "data/derived",
+    "results_dir": "results/audit",
+    "workers": null,
+    "seed": 0,
+    "duplicate_threshold": null,
+    "duplicate_review_floor": 0.5,
+    "min_cluster_eyes": 50,
+    "n_boot": 2000,
+    "age_bin_width": 5,
+    "stratum_age_width": 10,
+    "folds": 5
+  },
+  "git_sha": "be2108453f3b254b79e32cf0688267bf8b3e999f",
+  "git_dirty": false,
+  "versions": {
+    "numpy": "2.5.3",
+    "omegaconf": "2.3.1",
+    "pillow": "12.3.0",
+    "polars": "1.44.2",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0"
+  }
+}

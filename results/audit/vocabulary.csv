@@ -1,0 +1,103 @@
+term,n_eyes,n_patients,n_left,n_right,with_N,with_D,with_G,with_C,with_A,with_H,with_M,with_O
+normal fundus,3098,1959,1580,1518,2275,257,45,57,22,0,27,470
+moderate non proliferative retinopathy,995,662,488,507,0,995,26,31,2,33,13,284
+mild nonproliferative retinopathy,549,456,270,279,0,549,5,12,3,19,5,126
+lens dust,405,265,208,197,219,48,22,36,0,0,7,137
+cataract,313,212,159,154,0,47,5,313,0,3,0,34
+glaucoma,282,177,150,132,0,29,282,1,15,8,10,50
+pathological myopia,246,161,116,130,0,20,1,0,0,0,246,47
+dry age-related macular degeneration,228,136,108,120,0,14,15,0,228,3,3,13
+macular epiretinal membrane,201,186,87,114,0,67,9,3,3,2,0,201
+hypertensive retinopathy,193,103,96,97,0,85,12,4,7,193,0,18
+epiretinal membrane,186,165,96,90,0,65,7,4,0,0,1,186
+drusen,179,127,87,92,0,34,6,6,1,1,2,179
+severe nonproliferative retinopathy,161,101,80,81,0,161,0,0,0,9,0,10
+myelinated nerve fibers,99,91,44,55,0,32,6,3,2,0,0,99
+laser spot,95,63,51,44,0,81,5,6,0,0,1,95
+vitreous degeneration,70,68,36,34,0,19,2,1,0,0,0,70
+refractive media opacity,63,53,31,32,0,5,11,8,4,0,9,63
+diabetic retinopathy,56,33,30,26,0,56,15,0,20,3,1,17
+wet age-related macular degeneration,49,46,27,22,0,6,3,0,49,1,1,6
+suspected glaucoma,44,38,27,17,0,15,44,2,0,3,1,12
+spotted membranous change,29,27,15,14,0,6,0,0,0,0,0,29
+tessellated fundus,29,27,16,13,0,1,3,0,3,0,21,29
+maculopathy,28,24,10,18,0,2,3,0,0,1,0,28
+branch retinal vein occlusion,26,26,16,10,0,8,1,1,0,2,0,26
+chorioretinal atrophy,25,24,14,11,0,3,2,0,0,0,5,25
+proliferative diabetic retinopathy,25,20,9,16,0,25,0,1,0,6,0,5
+low image quality,21,19,9,12,3,16,0,0,0,0,0,2
+retinal pigmentation,21,18,9,12,0,3,0,0,0,0,0,21
+white vessel,19,18,12,7,0,14,1,0,0,0,0,19
+post retinal laser surgery,18,11,7,11,0,16,0,2,0,0,0,18
+peripapillary atrophy,16,16,8,8,0,0,0,0,0,0,16,16
+myopia retinopathy,15,9,7,8,0,1,9,0,4,0,15,3
+epiretinal membrane over the macula,14,13,7,7,0,5,0,0,0,0,0,14
+retinitis pigmentosa,13,9,6,7,0,3,0,0,0,0,0,13
+central retinal vein occlusion,10,7,7,3,0,2,1,0,0,1,0,10
+optic disc edema,10,7,5,5,0,2,0,0,0,0,0,10
+post laser photocoagulation,10,7,4,6,0,6,2,0,1,0,0,10
+severe proliferative diabetic retinopathy,10,10,8,2,0,10,0,3,0,0,0,5
+retinochoroidal coloboma,9,6,3,6,0,0,0,0,0,0,0,9
+atrophic change,7,7,1,6,0,2,0,0,0,0,0,7
+optic nerve atrophy,7,4,4,3,0,0,2,0,2,1,0,7
+old branch retinal vein occlusion,6,6,2,4,0,2,0,0,1,1,0,6
+depigmentation of the retinal pigment epithelium,5,4,3,2,0,0,0,0,0,0,0,5
+optic disk photographically invisible,5,5,3,2,0,2,4,0,0,0,0,0
+central retinal artery occlusion,4,4,0,4,0,1,0,0,0,0,0,4
+chorioretinal atrophy with pigmentation proliferation,4,4,3,1,0,1,0,0,0,0,0,4
+myopic retinopathy,4,2,2,2,0,0,0,0,0,0,4,0
+old chorioretinopathy,4,4,2,2,0,0,0,0,0,1,1,4
+pigment epithelium proliferation,4,4,1,3,0,2,0,0,0,0,0,4
+abnormal pigment,3,3,0,3,0,2,0,0,0,0,0,3
+age-related macular degeneration,3,2,1,2,0,1,0,0,3,2,0,0
+branch retinal artery occlusion,3,3,1,2,0,0,0,0,0,0,0,3
+idiopathic choroidal neovascularization,3,3,2,1,0,0,0,0,0,0,0,3
+myopic maculopathy,3,2,1,2,0,0,1,0,0,0,3,0
+old central retinal vein occlusion,3,3,1,2,0,0,3,0,0,2,0,3
+retina fold,3,3,1,2,0,1,0,0,0,0,0,3
+anterior segment image,2,2,1,1,0,1,0,0,0,0,2,0
+atrophy,2,2,1,1,0,0,0,0,0,0,0,2
+fundus laser photocoagulation spots,2,1,1,1,0,0,2,0,0,0,0,2
+intraretinal hemorrhage,2,2,2,0,0,0,2,0,0,0,1,2
+intraretinal microvascular abnormality,2,2,0,2,0,2,0,0,0,0,0,2
+macular hole,2,2,2,0,0,0,0,0,0,0,0,2
+morning glory syndrome,2,2,0,2,0,0,0,0,0,0,0,2
+pigmentation disorder,2,2,0,2,0,1,1,0,0,0,0,2
+punctate inner choroidopathy,2,1,1,1,0,0,0,0,0,0,2,2
+retinal pigment epithelial hypertrophy,2,2,0,2,0,2,0,0,0,0,0,2
+rhegmatogenous retinal detachment,2,2,2,0,0,0,0,0,0,0,0,2
+suspected diabetic retinopathy,2,1,1,1,0,2,0,0,0,2,0,0
+suspicious diabetic retinopathy,2,1,1,1,0,2,2,0,0,0,0,0
+vessel tortuosity,2,2,1,1,0,1,0,0,0,0,0,2
+arteriosclerosis,1,1,1,0,0,0,0,0,0,0,0,1
+asteroid hyalosis,1,1,1,0,0,0,0,0,0,0,0,1
+central serous chorioretinopathy,1,1,0,1,0,0,0,0,1,0,0,1
+choroidal nevus,1,1,1,0,0,0,0,0,1,0,0,1
+congenital choroidal coloboma,1,1,0,1,0,0,0,0,0,0,0,1
+diffuse chorioretinal atrophy,1,1,1,0,0,0,0,0,1,0,0,1
+diffuse retinal atrophy,1,1,1,0,0,0,1,0,0,0,0,1
+glial remnants anterior to the optic disc,1,1,0,1,0,1,0,0,0,0,0,1
+image offset,1,1,1,0,0,0,1,0,1,0,0,0
+macular coloboma,1,1,1,0,0,0,0,0,0,0,0,1
+macular pigmentation disorder,1,1,1,0,0,1,1,0,0,0,0,1
+no fundus image,1,1,1,0,0,1,0,0,0,0,0,0
+old choroiditis,1,1,1,0,0,1,0,0,0,0,0,1
+optic discitis,1,1,0,1,0,0,0,0,0,0,0,1
+optic disk epiretinal membrane,1,1,1,0,0,1,0,0,0,0,0,1
+oval yellow-white atrophy,1,1,0,1,0,0,0,0,0,0,0,1
+retinal artery macroaneurysm,1,1,0,1,0,0,0,0,0,0,0,1
+retinal detachment,1,1,0,1,0,0,0,0,0,0,1,1
+retinal pigment epithelium atrophy,1,1,1,0,0,1,0,0,0,0,0,1
+retinal vascular sheathing,1,1,0,1,0,0,0,0,0,0,0,1
+silicone oil eye,1,1,1,0,0,0,0,0,0,0,0,1
+suspected abnormal color of optic disc,1,1,0,1,0,0,0,0,0,0,0,1
+suspected cataract,1,1,0,1,0,0,1,1,0,0,0,0
+suspected macular epimacular membrane,1,1,0,1,0,0,0,0,0,0,1,1
+suspected microvascular anomalies,1,1,0,1,0,1,0,0,0,0,0,1
+suspected moderate non proliferative retinopathy,1,1,1,0,0,1,0,0,0,0,1,0
+suspected retinal vascular sheathing,1,1,1,0,0,0,0,0,0,0,0,1
+suspected retinitis pigmentosa,1,1,0,1,0,0,0,0,0,0,0,1
+vascular loops,1,1,0,1,0,1,0,0,0,0,0,1
+vitreous opacity,1,1,0,1,0,0,0,0,0,1,0,1
+wedge white line change,1,1,1,0,0,0,0,0,0,0,0,1
+wedge-shaped change,1,1,0,1,0,0,0,0,0,0,0,1
