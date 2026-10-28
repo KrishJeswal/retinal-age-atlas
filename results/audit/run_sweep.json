@@ -1,0 +1,31 @@
+{
+  "stage": "sweep",
+  "config": {
+    "annotations": "data/raw/odir/annotations.xlsx",
+    "image_dir": "data/raw/odir/images",
+    "mapping": "prereg/keyword_mapping.csv",
+    "derived_dir": "data/derived",
+    "results_dir": "results/audit",
+    "workers": null,
+    "seed": 0,
+    "duplicate_threshold": null,
+    "candidate_floor": 0.9,
+    "reference_eyes": 400,
+    "shared_components": 8,
+    "min_cluster_eyes": 50,
+    "n_boot": 2000,
+    "age_bin_width": 5,
+    "stratum_age_width": 10,
+    "folds": 5
+  },
+  "git_sha": "6d0848e5d0ced55bf955eee46bff6769b2ccfc53",
+  "git_dirty": false,
+  "versions": {
+    "numpy": "2.5.3",
+    "omegaconf": "2.3.1",
+    "pillow": "12.3.0",
+    "polars": "1.44.2",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0"
+  }
+}

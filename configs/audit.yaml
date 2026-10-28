@@ -5,7 +5,7 @@ derived_dir: data/derived
 results_dir: results/audit
 workers: null
 seed: 0
-duplicate_threshold: null
+duplicate_threshold: 0.75
 candidate_floor: 0.9
 reference_eyes: 400
 shared_components: 8
