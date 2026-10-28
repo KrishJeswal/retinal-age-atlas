@@ -1,8 +1,12 @@
+import warnings
+
 import numpy as np
 import polars as pl
 import statsmodels.api as sm
 from scipy import ndimage, stats
+from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
+from rra.analysis.bootstrap import cluster_bootstrap, percentile_ci
 from rra.analysis.discrimination import auc, auc_with_ci
 from rra.data.manifest import KEY
 
@@ -110,20 +114,31 @@ def crossfit_logistic_score(
     features: pl.DataFrame, target: pl.DataFrame, folds: int = SCORE_FOLDS, seed: int = 0
 ) -> pl.DataFrame:
     """Sensitivity score: logistic regression of the keyword target on the signed scores, each
-    eye predicted by a model that never saw its patient (patient-level folds)."""
+    eye predicted by a model that never saw its patient (patient-level folds). Constant metrics
+    are dropped; if any fold cannot be fitted (separation, singular, no convergence) every score
+    is NaN, so the sensitivity is reported as missing rather than half-computed."""
     data = signed_scores(features).join(target, on=KEY).drop_nulls()
     patients = data["patient_id"].unique().sort().to_numpy()
     fold_of = dict(
         zip(patients, np.random.default_rng(seed).permutation(len(patients)) % folds, strict=True)
     )
     fold = np.array([fold_of[p] for p in data["patient_id"]])
-    x = sm.add_constant(data.select(list(QUALITY_DIRECTION)).to_numpy())
+    metrics = data.select(list(QUALITY_DIRECTION)).to_numpy()
+    x = sm.add_constant(metrics[:, metrics.std(axis=0) > 0], has_constant="add")
     y = data["low_quality_kw"].to_numpy().astype(float)
-    predicted = np.empty(len(y))
-    for k in range(folds):
-        test = fold == k
-        model = sm.Logit(y[~test], x[~test]).fit(disp=0)
-        predicted[test] = model.predict(x[test])
+    predicted = np.full(len(y), np.nan)
+    try:
+        with warnings.catch_warnings(), np.errstate(over="ignore"):
+            warnings.simplefilter("ignore", ConvergenceWarning)
+            warnings.simplefilter("error", PerfectSeparationWarning)
+            for k in range(folds):
+                test = fold == k
+                model = sm.Logit(y[~test], x[~test]).fit(disp=0)
+                if not model.mle_retvals["converged"]:
+                    raise np.linalg.LinAlgError("logistic fit did not converge")
+                predicted[test] = model.predict(x[test])
+    except (np.linalg.LinAlgError, PerfectSeparationWarning):
+        predicted[:] = np.nan
     return data.select(*KEY, "low_quality_kw").with_columns(logistic_score=pl.Series(predicted))
 
 
@@ -147,3 +162,43 @@ def validate_quality(
     )
     result["passes"] = result["auc"] >= EYEQ_FALLBACK_AUC
     return result
+
+
+def ols_slope(x: np.ndarray, y: np.ndarray) -> float:
+    x = x - x.mean()
+    return float((x * (y - y.mean())).sum() / (x**2).sum())
+
+
+def yellowness_slopes(
+    data: pl.DataFrame, n_boot: int = 2000, seed: int = 0, level: float = 0.95
+) -> pl.DataFrame:
+    """D5 / threat 7: per camera cluster (and "all"), the OLS slope of b* (yellowness) on age
+    in healthy eyes, in b* units per year, with a patient-bootstrap CI. Descriptive: shows
+    whether lens yellowing is visible to the model and whether cameras differ in it."""
+    data = data.drop_nulls(["age", "lab_b", "camera_cluster"])
+    groups = [("all", data)] + [
+        (name, part) for (name,), part in data.group_by("camera_cluster", maintain_order=True)
+    ]
+    rows = []
+    for name, part in sorted(groups, key=lambda g: (g[0] != "all", g[0])):
+        x, y = part["age"].to_numpy().astype(float), part["lab_b"].to_numpy()
+        if part["patient_id"].n_unique() < 3 or np.ptp(x) == 0:
+            continue
+        replicates = cluster_bootstrap(
+            lambda i, x=x, y=y: ols_slope(x[i], y[i]) if np.ptp(x[i]) > 0 else np.nan,
+            part["patient_id"].to_numpy(),
+            n_boot,
+            seed,
+        )
+        low, high = percentile_ci(replicates, level)
+        rows.append(
+            {
+                "camera_cluster": name,
+                "n_eyes": part.height,
+                "n_patients": part["patient_id"].n_unique(),
+                "slope_per_year": ols_slope(x, y),
+                "ci_low": low,
+                "ci_high": high,
+            }
+        )
+    return pl.DataFrame(rows)

@@ -120,3 +120,14 @@ def test_logistic_score_is_out_of_fold_by_patient():
     assert first.height == features.height
     shuffled = crossfit_logistic_score(features, target, seed=1)
     assert not np.allclose(first["logistic_score"], shuffled["logistic_score"])
+
+
+def test_logistic_drops_constant_metrics_and_reports_unfittable_as_nan():
+    features, categories = cohort(np.random.default_rng(4), 100, 1.0)
+    target = low_quality_keyword(categories)
+    constant = features.with_columns(clip_low=pl.lit(0.0))
+    assert crossfit_logistic_score(constant, target)["logistic_score"].is_not_nan().all()
+    separable = target.with_columns(
+        low_quality_kw=pl.Series(features["sharpness"] < features["sharpness"].median())
+    )
+    assert crossfit_logistic_score(features, separable)["logistic_score"].is_nan().all()
